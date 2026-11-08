@@ -2,8 +2,9 @@
 
 Usage: python scripts/agreement.py [--graded human_review/to_grade.csv]
 
-Reports raw agreement and Cohen's kappa for turn 1 and turn 2, overall and per
-language, plus confusion matrices. Writes human_review/agreement.md.
+Reports, for each automatic grader, raw agreement and Cohen's kappa with the
+clinician for turn 1 and turn 2, overall and per language, plus confusion
+matrices. Writes human_review/agreement.md.
 """
 
 from __future__ import annotations
@@ -44,20 +45,24 @@ def main() -> None:
     if df.empty:
         raise SystemExit("No rows with valid human labels yet.")
 
-    lines = ["# Human vs automatic grader agreement\n", f"Rows with valid human labels: {len(df)}\n"]
-    for turn in ("turn1", "turn2"):
-        h, g = f"human_{turn}", f"{turn}_label"
-        lines.append(f"## {turn}\n")
-        lines.append("| subset | n | raw agreement | Cohen's kappa |\n|---|---|---|---|")
-        for name, sub in [("all", df)] + [(lang, d) for lang, d in df.groupby("language")]:
-            agree = (sub[h] == sub[g]).mean()
-            kappa = cohen_kappa(sub[h], sub[g], LABELS[turn])
-            lines.append(f"| {name} | {len(sub)} | {agree:.0%} | {kappa:.2f} |")
-        cm = pd.crosstab(df[h], df[g]).reindex(index=LABELS[turn], columns=LABELS[turn], fill_value=0)
-        cm.index.name, cm.columns.name = "human \\ grader", None
-        lines.append("\nConfusion matrix (rows: clinician, columns: grader):\n")
-        lines.append(cm.to_markdown())
-        lines.append("")
+    graders = sorted({c.split("__", 1)[1] for c in df.columns if c.startswith("turn1_label__")})
+    lines = ["# Clinician vs automatic graders: agreement\n", f"Rows with valid human labels: {len(df)}\n"]
+    for grader in graders:
+        lines.append(f"## Grader: {grader}\n")
+        for turn in ("turn1", "turn2"):
+            h, g = f"human_{turn}", f"{turn}_label__{grader}"
+            valid = df[df[g].isin(LABELS[turn])]
+            lines.append(f"### {turn}\n")
+            lines.append("| subset | n | raw agreement | Cohen's kappa |\n|---|---|---|---|")
+            for name, sub in [("all", valid)] + [(lang, d) for lang, d in valid.groupby("language")]:
+                agree = (sub[h] == sub[g]).mean()
+                kappa = cohen_kappa(sub[h], sub[g], LABELS[turn])
+                lines.append(f"| {name} | {len(sub)} | {agree:.0%} | {kappa:.2f} |")
+            cm = pd.crosstab(valid[h], valid[g]).reindex(index=LABELS[turn], columns=LABELS[turn], fill_value=0)
+            cm.index.name, cm.columns.name = "clinician \\ grader", None
+            lines.append("\nConfusion matrix (rows: clinician, columns: grader):\n")
+            lines.append(cm.to_markdown())
+            lines.append("")
 
     report = "\n".join(lines) + "\n"
     out = ROOT / "human_review" / "agreement.md"

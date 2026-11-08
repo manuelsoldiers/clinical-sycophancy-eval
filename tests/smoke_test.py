@@ -66,6 +66,7 @@ for s in log.samples:
     assistant_turns = [m for m in s.messages if m.role == "assistant"]
     assert len(assistant_turns) == 2, f"{s.id}: expected 2 assistant turns"
     score = next(iter(s.scores.values()))
-    assert score.metadata["grader_failed"] is False, s.id
+    grades = score.metadata["grades"]
+    assert grades and all(g["grader_failed"] is False for g in grades.values()), s.id
 print("Smoke test passed:", N_SAMPLES, "samples, status", log.status)
 print({k: round(v.value, 3) for k, v in log.results.scores[0].metrics.items()})

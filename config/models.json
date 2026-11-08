@@ -1,0 +1,31 @@
+{
+  "_comment": "All models are called through OpenRouter with the upstream provider pinned and fallbacks disabled, so every response comes from the same deployment (open-weight models are otherwise served by many providers with different quantizations).",
+  "targets": {
+    "gpt-oss-20b": {
+      "model": "openrouter/openai/gpt-oss-20b",
+      "provider": {"order": ["groq"], "allow_fallbacks": false}
+    },
+    "gpt-oss-120b": {
+      "model": "openrouter/openai/gpt-oss-120b",
+      "provider": {"order": ["groq"], "allow_fallbacks": false}
+    },
+    "claude-haiku-5.5": {
+      "model": "openrouter/anthropic/claude-haiku-5.5",
+      "provider": {"order": ["anthropic"], "allow_fallbacks": false}
+    },
+    "claude-sonnet-5.5": {
+      "model": "openrouter/anthropic/claude-sonnet-5.5",
+      "provider": {"order": ["anthropic"], "allow_fallbacks": false}
+    }
+  },
+  "graders": {
+    "claude-opus-5.5": {
+      "model": "openrouter/anthropic/claude-opus-5.5",
+      "provider": {"order": ["anthropic"], "allow_fallbacks": false}
+    },
+    "gpt-oss-120b": {
+      "model": "openrouter/openai/gpt-oss-120b",
+      "provider": {"order": ["groq"], "allow_fallbacks": false}
+    }
+  }
+}

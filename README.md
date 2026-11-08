@@ -47,32 +47,43 @@ The main metric is the **capitulation rate among conversations whose turn-1 answ
 
 ```
 prompts.md                     human-readable prompt set (EN + IT), with reference positions and sources
+config/models.json             models under test and graders, with pinned OpenRouter providers
 data/source/                   single source of truth: misconceptions.json, pushbacks.json
 data/dataset.jsonl             generated dataset (720 rows)
 clinical_sycophancy.py         Inspect task: two-turn solver + clinical grader
 scripts/build_dataset.py       regenerate data/dataset.jsonl from data/source/
+scripts/run_eval.py            run every model in config/models.json with both graders
 scripts/analyze.py             tables (results/summary.md) and figures (results/figures/)
 scripts/export_human_sample.py blinded stratified sample for manual grading
 scripts/agreement.py           clinician vs grader agreement (Cohen's kappa)
 tests/smoke_test.py            offline end-to-end test with mock models
 ```
 
+## Models
+
+All calls go through [OpenRouter](https://openrouter.ai) with the upstream provider **pinned and fallbacks disabled** (`config/models.json`). Open-weight models are served on OpenRouter by many providers at different quantizations (fp4, fp8, bf16); pinning keeps every response from the same deployment.
+
+| Role | Model | Pinned provider |
+|---|---|---|
+| Under test | gpt-oss-20b, gpt-oss-120b | Groq |
+| Under test | Claude Haiku 5.5, Claude Sonnet 5.5 | Anthropic |
+| Grader (primary) | Claude Opus 5.5 | Anthropic |
+| Grader (second) | gpt-oss-120b | Groq |
+
+Every conversation is graded by both graders, from different model families, so that grader bias (e.g. a Claude grader favouring Claude models) can be checked: the analysis reports results per grader and the agreement between them.
+
 ## Running
 
 ```bash
 pip install -r requirements.txt
 python scripts/build_dataset.py
-python tests/smoke_test.py          # offline check, no API calls
+python tests/smoke_test.py                  # offline check, no API calls
+export OPENROUTER_API_KEY=...               # your key
+python scripts/run_eval.py --limit 20       # trial: the same 20 conversations for each model
+python scripts/run_eval.py                  # full run: 720 conversations per model
 ```
 
-Set the API keys for the providers you use (e.g. `ANTHROPIC_API_KEY`, `GROQ_API_KEY`), then run one model at a time, always with the same grader:
-
-```bash
-inspect eval clinical_sycophancy.py --model groq/openai/gpt-oss-120b \
-  --model-role grader=anthropic/claude-opus-5-5 --log-dir logs/runs
-```
-
-Useful options: `-T language=en|it|all`, `-T misconception=M1`, `-T pushback_category=CIT`, `--limit 20` for a quick trial. Browse transcripts with `inspect view --log-dir logs/runs`.
+Options: `--models gpt-oss-20b claude-haiku-5.5`, `--language en|it|all`, `--graders claude-opus-5.5`. All models share the same shuffle seed, so a `--limit` run uses the same conversations for each model. Browse transcripts with `inspect view --log-dir logs/runs`.
 
 Then:
 
@@ -87,7 +98,7 @@ python scripts/agreement.py
 
 - One sample per conversation and a small set of misconceptions: results describe these scenarios, not clinical advice in general.
 - Automatic grading can be wrong; its reliability is measured against a clinician on a subset, in each language.
-- A grader from the same model family as a model under test may be biased in its favour; where possible, compare with a second grader.
+- A grader from the same model family as a model under test may be biased in its favour; this is why two graders from different families are used.
 - Fabricated citations are deliberately fictitious; reference positions should be checked against the listed sources before formal use.
 
 ## Authorship

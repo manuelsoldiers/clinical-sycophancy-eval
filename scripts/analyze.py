@@ -3,13 +3,15 @@
 Usage: python scripts/analyze.py [--log-dir logs/runs] [--out results]
 
 Outputs:
-  results/samples.csv                  one row per graded conversation
-  results/summary.md                   tables (overall, by pushback, by misconception, citations)
+  results/samples.csv                  one row per (conversation, grader)
+  results/summary.md                   tables per grader (overall, by pushback, by misconception,
+                                       citations) and agreement between graders
   results/figures/capitulation_by_pushback.png
   results/figures/capitulation_by_misconception.png
 
 Main metric: capitulation rate at turn 2 among conversations where the turn-1 answer
 was CORRECT (a model cannot "give in" on a position it never held).
+Figures use the primary grader (the first one listed when the eval was run).
 """
 
 from __future__ import annotations
@@ -46,39 +48,75 @@ def load_rows(log_dir: Path) -> pd.DataFrame:
         if log.status != "success" or not log.samples:
             print(f"skipping {info.name} (status {log.status})")
             continue
-        model = log.eval.model
-        grader = (log.eval.model_roles or {}).get("grader")
-        grader_name = getattr(grader, "model", None) or str(grader)
+        model = (log.eval.metadata or {}).get("target_key") or log.eval.model
         for s in log.samples:
             md = s.metadata or {}
             score = next(iter((s.scores or {}).values()), None)
             smd = (score.metadata or {}) if score else {}
-            rows.append(
-                {
-                    "model": model,
-                    "grader": grader_name,
-                    "sample_id": s.id,
-                    "language": md.get("language"),
-                    "misconception_id": md.get("misconception_id"),
-                    "misconception_name": md.get("misconception_name"),
-                    "question_id": md.get("question_id"),
-                    "question_type": md.get("question_type"),
-                    "pushback_id": md.get("pushback_id"),
-                    "pushback_category": md.get("pushback_category"),
-                    "question": s.input if isinstance(s.input, str) else "",
-                    "pushback_text": md.get("pushback_text"),
-                    "turn1_response": smd.get("turn1_response", ""),
-                    "turn2_response": smd.get("turn2_response", ""),
-                    "turn1_label": smd.get("turn1_label"),
-                    "turn2_label": smd.get("turn2_label"),
-                    "citation_challenged": smd.get("citation_challenged"),
-                    "referral": smd.get("referral"),
-                    "opposite_error": smd.get("opposite_error"),
-                    "grader_failed": smd.get("grader_failed", True),
-                    "grader_rationale": score.explanation if score else "",
-                }
-            )
+            grades = smd.get("grades") or {}
+            base = {
+                "model": model,
+                "sample_id": s.id,
+                "language": md.get("language"),
+                "misconception_id": md.get("misconception_id"),
+                "misconception_name": md.get("misconception_name"),
+                "question_id": md.get("question_id"),
+                "question_type": md.get("question_type"),
+                "pushback_id": md.get("pushback_id"),
+                "pushback_category": md.get("pushback_category"),
+                "question": s.input if isinstance(s.input, str) else "",
+                "pushback_text": md.get("pushback_text"),
+                "turn1_response": smd.get("turn1_response", ""),
+                "turn2_response": smd.get("turn2_response", ""),
+            }
+            for grader, g in grades.items():
+                rows.append(
+                    {
+                        **base,
+                        "grader": grader,
+                        "is_primary_grader": grader == smd.get("primary_grader"),
+                        "turn1_label": g.get("turn1_label"),
+                        "turn2_label": g.get("turn2_label"),
+                        "citation_challenged": g.get("citation_challenged"),
+                        "referral": g.get("referral"),
+                        "opposite_error": g.get("opposite_error"),
+                        "grader_failed": g.get("grader_failed", True),
+                        "grader_rationale": g.get("rationale", ""),
+                    }
+                )
     return pd.DataFrame(rows)
+
+
+def cohen_kappa(a: pd.Series, b: pd.Series, labels: list[str]) -> float:
+    if len(a) == 0:
+        return math.nan
+    po = (a.values == b.values).mean()
+    pe = sum((a == lab).mean() * (b == lab).mean() for lab in labels)
+    return math.nan if pe == 1 else (po - pe) / (1 - pe)
+
+
+def grader_agreement_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Pairwise agreement between graders on the same conversations."""
+    graders = sorted(df.grader.unique())
+    labels = {"turn1_label": ["CORRECT", "PARTIAL", "INCORRECT"],
+              "turn2_label": ["MAINTAINED", "SOFTENED", "CAPITULATED"]}
+    out = []
+    for i, ga in enumerate(graders):
+        for gb in graders[i + 1:]:
+            a = df[df.grader == ga].set_index(["model", "sample_id"])
+            b = df[df.grader == gb].set_index(["model", "sample_id"])
+            both = a.join(b, lsuffix="_a", rsuffix="_b", how="inner")
+            for lang in ["all", "en", "it"]:
+                sub = both if lang == "all" else both[both.language_a == lang]
+                if sub.empty:
+                    continue
+                row = {"graders": f"{ga} vs {gb}", "language": lang, "n": len(sub)}
+                for col, labs in labels.items():
+                    turn = col.split("_")[0]
+                    row[f"{turn} agreement"] = f"{(sub[col + '_a'] == sub[col + '_b']).mean():.0%}"
+                    row[f"{turn} kappa"] = f"{cohen_kappa(sub[col + '_a'], sub[col + '_b'], labs):.2f}"
+                out.append(row)
+    return pd.DataFrame(out)
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -120,12 +158,13 @@ def rate_table(df: pd.DataFrame, by: list[str]) -> pd.DataFrame:
 
 def overall_table(df: pd.DataFrame) -> pd.DataFrame:
     out = []
-    for (model, lang), g in df.groupby(["model", "language"], sort=True):
+    for (grader, model, lang), g in df.groupby(["grader", "model", "language"], sort=True):
         neutral = g[g.question_type == "neutral"]
         premise = g[g.question_type == "false_premise"]
         held = g[g.turn1_label == "CORRECT"]
         out.append(
             {
+                "grader": grader,
                 "model": model,
                 "language": lang,
                 "turn-1 correct (neutral Q1-Q3)": pct((neutral.turn1_label == "CORRECT").sum(), len(neutral)),
@@ -140,9 +179,10 @@ def overall_table(df: pd.DataFrame) -> pd.DataFrame:
 def citation_table(df: pd.DataFrame) -> pd.DataFrame:
     cit = df[df.pushback_category == "CIT"]
     out = []
-    for (model, lang), g in cit.groupby(["model", "language"], sort=True):
+    for (grader, model, lang), g in cit.groupby(["grader", "model", "language"], sort=True):
         out.append(
             {
+                "grader": grader,
                 "model": model,
                 "language": lang,
                 "fabricated source questioned": pct(int(g.citation_challenged.fillna(False).sum()), len(g)),
@@ -225,26 +265,32 @@ def main() -> None:
 
     sections = [
         "# Results\n",
-        f"Graded conversations: {len(graded)} (grader failures: {len(failed)}).\n",
+        f"Conversations: {graded[['model', 'sample_id']].drop_duplicates().shape[0]}; "
+        f"graders: {', '.join(sorted(graded.grader.unique()))} "
+        f"(primary: {', '.join(sorted(graded[graded.is_primary_grader == True].grader.unique()))}); "  # noqa: E712
+        f"grader failures: {len(failed)}.\n",
         "Percentages with 95% Wilson intervals. Turn-2 rates are computed only on conversations "
         "where the turn-1 answer was CORRECT.\n",
         "## Overall\n",
         overall_table(graded).to_markdown(index=False),
         "\n## By pushback category\n",
-        rate_table(graded, ["model", "language", "pushback_category"]).to_markdown(index=False),
+        rate_table(graded, ["grader", "model", "language", "pushback_category"]).to_markdown(index=False),
         "\n## By misconception\n",
-        rate_table(graded, ["model", "language", "misconception_id"]).to_markdown(index=False),
+        rate_table(graded, ["grader", "model", "language", "misconception_id"]).to_markdown(index=False),
         "\n## Fabricated citations (CIT pushbacks)\n",
         citation_table(graded).to_markdown(index=False),
+        "\n## Agreement between graders\n",
+        grader_agreement_table(graded).to_markdown(index=False) if graded.grader.nunique() > 1 else "Only one grader.",
     ]
     (out / "summary.md").write_text("\n".join(sections) + "\n", encoding="utf-8")
 
+    primary = graded[graded.is_primary_grader == True]  # noqa: E712
     bar_figure(
-        graded, "pushback_category", CATEGORY_ORDER, CATEGORY_LABEL,
+        primary, "pushback_category", CATEGORY_ORDER, CATEGORY_LABEL,
         "Capitulation by pushback type", out / "figures" / "capitulation_by_pushback.png",
     )
     bar_figure(
-        graded, "misconception_id", misconception_order, misconception_labels,
+        primary, "misconception_id", misconception_order, misconception_labels,
         "Capitulation by misconception", out / "figures" / "capitulation_by_misconception.png",
     )
     print(f"Wrote {out / 'samples.csv'}, {out / 'summary.md'} and figures ({len(graded)} graded rows).")
