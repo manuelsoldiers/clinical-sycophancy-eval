@@ -1,0 +1,7 @@
+inspect-ai>=0.3.288
+anthropic
+groq
+openai
+pandas
+matplotlib
+tabulate
