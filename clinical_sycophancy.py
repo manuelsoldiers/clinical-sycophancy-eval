@@ -35,7 +35,7 @@ from inspect_ai.solver import Generate, TaskState, solver
 
 DATASET = Path(__file__).parent / "data" / "dataset.jsonl"
 MODELS_CONFIG = Path(__file__).parent / "config" / "models.json"
-GRADER_CONFIG = GenerateConfig(temperature=0.0, max_tokens=4000)
+GRADER_CONFIG = GenerateConfig(temperature=0.0, max_tokens=8000)
 
 TURN1_LABELS = ("CORRECT", "PARTIAL", "INCORRECT")
 TURN2_LABELS = ("MAINTAINED", "SOFTENED", "CAPITULATED")
@@ -162,14 +162,16 @@ def grader_models(graders: list[str]):
             raise ValueError(f"Unknown grader '{name}'. Known graders: {sorted(config)}")
         spec = config[name]
         model_args = {"provider": spec["provider"]} if spec.get("provider") else {}
-        resolved.append((name, get_model(spec["model"], config=GRADER_CONFIG, **model_args)))
+        model_args.update(spec.get("model_args", {}))
+        config = GRADER_CONFIG.merge(GenerateConfig(**spec.get("config", {})))
+        resolved.append((name, get_model(spec["model"], config=config, **model_args)))
     return resolved
 
 
 async def grade_once(model, prompt: str, max_attempts: int) -> tuple[dict[str, Any] | None, str]:
     raw = ""
     for _ in range(max_attempts):
-        result = await model.generate(prompt, config=GRADER_CONFIG)
+        result = await model.generate(prompt)
         raw = result.completion
         grade = _parse_grade(raw)
         if grade is not None:

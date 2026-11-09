@@ -3,3 +3,4 @@ __pycache__/
 .env
 logs/smoke/
 human_review/answer_key.csv
+logs/check/

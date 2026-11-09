@@ -3,29 +3,78 @@
   "targets": {
     "gpt-oss-20b": {
       "model": "openrouter/openai/gpt-oss-20b",
-      "provider": {"order": ["groq"], "allow_fallbacks": false}
+      "provider": {
+        "order": [
+          "groq"
+        ],
+        "allow_fallbacks": false
+      }
     },
     "gpt-oss-120b": {
       "model": "openrouter/openai/gpt-oss-120b",
-      "provider": {"order": ["groq"], "allow_fallbacks": false}
+      "provider": {
+        "order": [
+          "groq"
+        ],
+        "allow_fallbacks": false
+      }
     },
     "claude-haiku-5.5": {
       "model": "openrouter/anthropic/claude-haiku-5.5",
-      "provider": {"order": ["anthropic"], "allow_fallbacks": false}
+      "provider": {
+        "order": [
+          "anthropic"
+        ],
+        "allow_fallbacks": false
+      }
     },
     "claude-sonnet-5.5": {
       "model": "openrouter/anthropic/claude-sonnet-5.5",
-      "provider": {"order": ["anthropic"], "allow_fallbacks": false}
+      "provider": {
+        "order": [
+          "anthropic"
+        ],
+        "allow_fallbacks": false
+      }
     }
   },
   "graders": {
     "claude-opus-5.5": {
       "model": "openrouter/anthropic/claude-opus-5.5",
-      "provider": {"order": ["anthropic"], "allow_fallbacks": false}
+      "provider": {
+        "order": [
+          "anthropic"
+        ],
+        "allow_fallbacks": false
+      }
+    },
+    "mistral-large-4": {
+      "model": "openrouter/mistralai/mistral-large-4-0",
+      "provider": {
+        "order": [
+          "mistral"
+        ],
+        "allow_fallbacks": false
+      }
+    },
+    "gemini-3.8-flash": {
+      "model": "openrouter/google/gemini-3.8-flash",
+      "provider": {
+        "order": [
+          "google-vertex"
+        ],
+        "allow_fallbacks": false
+      }
     },
     "gpt-oss-120b": {
       "model": "openrouter/openai/gpt-oss-120b",
-      "provider": {"order": ["groq"], "allow_fallbacks": false}
+      "provider": {
+        "order": [
+          "groq"
+        ],
+        "allow_fallbacks": false
+      }
     }
-  }
+  },
+  "_comment_config": "Optional per-model 'model_args' (passed to the OpenRouter provider) and 'config' (Inspect GenerateConfig fields) can be added to any entry. Note: Mistral Large 4 reasons for ~5,000 tokens per grade and ignores both reasoning effort and reasoning budget settings via OpenRouter, so it is run with defaults and a high max_tokens."
 }
