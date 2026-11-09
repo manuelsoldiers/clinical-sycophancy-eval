@@ -155,16 +155,16 @@ def grader_models(graders: list[str]):
     """Resolve grader keys from config/models.json into (name, Model) pairs."""
     if not graders:
         return [("grader", get_model(role="grader", required=True))]
-    config = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))["graders"]
+    specs = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))["graders"]
     resolved = []
     for name in graders:
-        if name not in config:
-            raise ValueError(f"Unknown grader '{name}'. Known graders: {sorted(config)}")
-        spec = config[name]
+        if name not in specs:
+            raise ValueError(f"Unknown grader '{name}'. Known graders: {sorted(specs)}")
+        spec = specs[name]
         model_args = {"provider": spec["provider"]} if spec.get("provider") else {}
         model_args.update(spec.get("model_args", {}))
-        config = GRADER_CONFIG.merge(GenerateConfig(**spec.get("config", {})))
-        resolved.append((name, get_model(spec["model"], config=config, **model_args)))
+        generate_config = GRADER_CONFIG.merge(GenerateConfig(**spec.get("config", {})))
+        resolved.append((name, get_model(spec["model"], config=generate_config, **model_args)))
     return resolved
 
 

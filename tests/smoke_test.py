@@ -27,7 +27,19 @@ tiktoken.get_encoding = lambda name: _ApproxEncoding()
 from inspect_ai import eval as inspect_eval  # noqa: E402
 from inspect_ai.model import ModelOutput, get_model  # noqa: E402
 
-from clinical_sycophancy import clinical_sycophancy  # noqa: E402
+from clinical_sycophancy import MODELS_CONFIG, clinical_sycophancy, grader_models  # noqa: E402
+
+# Every grader in config/models.json must resolve to its own model with the right
+# provider (no API call is made here).
+import os  # noqa: E402
+
+os.environ.setdefault("OPENROUTER_API_KEY", "placeholder")
+_grader_specs = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))["graders"]
+_resolved = grader_models(list(_grader_specs))
+assert [n for n, _ in _resolved] == list(_grader_specs), "grader names/order changed"
+for _name, _model in _resolved:
+    assert _model.name.split("/", 1)[-1] in _grader_specs[_name]["model"], (_name, _model.name)
+print("Grader config OK:", ", ".join(n for n, _ in _resolved))
 
 N_SAMPLES = 12
 labels = itertools.cycle(
