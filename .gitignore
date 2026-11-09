@@ -6,3 +6,6 @@ human_review/answer_key.csv
 logs/check/
 logs/trial/
 human_review/review_page.html
+# Trial results hold per-conversation grader labels: kept out of the public repo
+# until the clinician has finished blind grading (then remove this line and commit).
+results/trial/
