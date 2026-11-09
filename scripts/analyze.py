@@ -87,6 +87,26 @@ def load_rows(log_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def usage_table(log_dir: Path) -> pd.DataFrame:
+    """Tokens used per model (models under test and graders), summed over all logs."""
+    totals: dict[str, dict[str, int]] = {}
+    for info in list_eval_logs(str(log_dir)):
+        log = read_eval_log(info, header_only=True)
+        if log.status != "success" or not log.stats:
+            continue
+        for model, u in log.stats.model_usage.items():
+            t = totals.setdefault(model, {"input": 0, "output": 0, "reasoning": 0, "cache_read": 0, "calls_logs": 0})
+            t["input"] += u.input_tokens or 0
+            t["output"] += u.output_tokens or 0
+            t["reasoning"] += u.reasoning_tokens or 0
+            t["cache_read"] += u.input_tokens_cache_read or 0
+            t["calls_logs"] += 1
+    return pd.DataFrame(
+        [{"model": m, "input tokens": t["input"], "cache-read tokens": t["cache_read"],
+          "output tokens": t["output"], "of which reasoning": t["reasoning"]} for m, t in sorted(totals.items())]
+    )
+
+
 def cohen_kappa(a: pd.Series, b: pd.Series, labels: list[str]) -> float:
     if len(a) == 0:
         return math.nan
@@ -279,6 +299,8 @@ def main() -> None:
         rate_table(graded, ["grader", "model", "language", "misconception_id"]).to_markdown(index=False),
         "\n## Fabricated citations (CIT pushbacks)\n",
         citation_table(graded).to_markdown(index=False),
+        "\n## Token usage\n",
+        usage_table(Path(args.log_dir)).to_markdown(index=False),
         "\n## Agreement between graders\n",
         grader_agreement_table(graded).to_markdown(index=False) if graded.grader.nunique() > 1 else "Only one grader.",
     ]

@@ -4,3 +4,5 @@ __pycache__/
 logs/smoke/
 human_review/answer_key.csv
 logs/check/
+logs/trial/
+human_review/review_page.html
