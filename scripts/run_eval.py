@@ -32,7 +32,8 @@ CONFIG = json.loads((ROOT / "config" / "models.json").read_text(encoding="utf-8"
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", nargs="*", default=list(CONFIG["targets"]), help="target keys")
-    parser.add_argument("--graders", nargs="*", default=list(CONFIG["graders"]), help="grader keys")
+    parser.add_argument("--graders", nargs="*", default=CONFIG.get("default_graders", list(CONFIG["graders"])),
+                        help="grader keys (default: default_graders in config/models.json)")
     parser.add_argument("--language", default="all", choices=["en", "it", "all"])
     parser.add_argument("--limit", type=int, default=None, help="samples per model (default: all)")
     parser.add_argument("--seed", type=int, default=2026, help="shuffle seed, shared by all models")

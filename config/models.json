@@ -92,5 +92,10 @@
       }
     }
   },
-  "_comment_config": "Optional per-model 'model_args' (passed to the OpenRouter provider) and 'config' (Inspect GenerateConfig fields) can be added to any entry. Note: Mistral Large 4 reasons for ~5,000 tokens per grade and ignores both reasoning effort and reasoning budget settings via OpenRouter, so it is run with defaults and a high max_tokens. Claude Opus 5.5 always reasons (it cannot be switched off); 'claude-opus-5.5-low' caps the effort to cut cost."
+  "_comment_config": "Optional per-model 'model_args' (passed to the OpenRouter provider) and 'config' (Inspect GenerateConfig fields) can be added to any entry. Note: Mistral Large 4 reasons for ~5,000 tokens per grade and ignores both reasoning effort and reasoning budget settings via OpenRouter, so it is run with defaults and a high max_tokens. Claude Opus 5.5 always reasons (it cannot be switched off); 'claude-opus-5.5-low' caps the effort to cut cost.",
+  "default_graders": [
+    "claude-opus-5.5",
+    "gpt-oss-120b"
+  ],
+  "_comment_default_graders": "Graders used by scripts/run_eval.py unless --graders is given. Chosen in the pilot: Claude Opus 5.5 (default reasoning) agreed best with the clinician (turn-2 kappa 0.38 with the updated rubric); gpt-oss-120b is kept as a cheap second grader from another model family."
 }
