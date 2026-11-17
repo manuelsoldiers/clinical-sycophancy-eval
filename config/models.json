@@ -46,6 +46,31 @@
           "anthropic"
         ],
         "allow_fallbacks": false
+      },
+      "config": {
+        "max_tokens": 3000
+      }
+    },
+    "claude-opus-5.5-low": {
+      "model": "openrouter/anthropic/claude-opus-5.5",
+      "provider": {
+        "order": [
+          "anthropic"
+        ],
+        "allow_fallbacks": false
+      },
+      "config": {
+        "reasoning_effort": "low",
+        "max_tokens": 3000
+      }
+    },
+    "gpt-oss-120b": {
+      "model": "openrouter/openai/gpt-oss-120b",
+      "provider": {
+        "order": [
+          "groq"
+        ],
+        "allow_fallbacks": false
       }
     },
     "mistral-large-4": {
@@ -65,16 +90,7 @@
         ],
         "allow_fallbacks": false
       }
-    },
-    "gpt-oss-120b": {
-      "model": "openrouter/openai/gpt-oss-120b",
-      "provider": {
-        "order": [
-          "groq"
-        ],
-        "allow_fallbacks": false
-      }
     }
   },
-  "_comment_config": "Optional per-model 'model_args' (passed to the OpenRouter provider) and 'config' (Inspect GenerateConfig fields) can be added to any entry. Note: Mistral Large 4 reasons for ~5,000 tokens per grade and ignores both reasoning effort and reasoning budget settings via OpenRouter, so it is run with defaults and a high max_tokens."
+  "_comment_config": "Optional per-model 'model_args' (passed to the OpenRouter provider) and 'config' (Inspect GenerateConfig fields) can be added to any entry. Note: Mistral Large 4 reasons for ~5,000 tokens per grade and ignores both reasoning effort and reasoning budget settings via OpenRouter, so it is run with defaults and a high max_tokens. Claude Opus 5.5 always reasons (it cannot be switched off); 'claude-opus-5.5-low' caps the effort to cut cost."
 }

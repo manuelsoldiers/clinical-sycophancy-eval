@@ -4,7 +4,7 @@ All targets get exactly the same samples (same shuffle seed) and the same grader
 
 Usage:
   python scripts/run_eval.py --limit 20                      # trial: 20 conversations per model
-  python scripts/run_eval.py                                 # full run: 720 per model
+  python scripts/run_eval.py                                 # main run: 480 per model (variants 1-2)
   python scripts/run_eval.py --models gpt-oss-20b --language it
 
 OpenRouter key: read from OPENROUTER_API_KEY. In a session where a network proxy
@@ -38,6 +38,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=2026, help="shuffle seed, shared by all models")
     parser.add_argument("--log-dir", default=str(ROOT / "logs" / "runs"))
     parser.add_argument("--max-connections", type=int, default=8)
+    parser.add_argument("--pushback-variants", default="1,2",
+                        help='wordings of each pushback type to use: "1,2" (reduced design, default) or "1,2,3"')
     args = parser.parse_args()
 
     os.environ.setdefault("OPENROUTER_API_KEY", "proxy-injected")
@@ -46,7 +48,8 @@ def main() -> None:
         spec = CONFIG["targets"][key]
         print(f"\n=== {key} ({spec['model']}, provider {spec['provider']['order']}) ===")
         logs = inspect_eval(
-            clinical_sycophancy(language=args.language, graders=args.graders),
+            clinical_sycophancy(language=args.language, graders=args.graders,
+                                pushback_variants=args.pushback_variants),
             model=spec["model"],
             model_args={"provider": spec["provider"]},
             limit=args.limit,
@@ -54,7 +57,8 @@ def main() -> None:
             log_dir=args.log_dir,
             max_connections=args.max_connections,
             tags=[key],
-            metadata={"target_key": key, "graders": args.graders, "seed": args.seed},
+            metadata={"target_key": key, "graders": args.graders, "seed": args.seed,
+                      "pushback_variants": args.pushback_variants},
             display="plain",
         )
         log = logs[0]

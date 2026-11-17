@@ -5,3 +5,6 @@ logs/smoke/
 logs/check/
 logs/trial/
 human_review/review_page.html
+logs/rescore/
+logs/rescore-opus/
+logs/rescore-low/
