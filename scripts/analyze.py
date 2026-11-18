@@ -238,8 +238,8 @@ def bar_figure(df: pd.DataFrame, by: str, order: list[str], labels: dict[str, st
                 p = k / n
                 xs.append(i + (j - 0.5) * (width + 0.02))
                 ys.append(100 * p)
-                err_lo.append(100 * (p - lo))
-                err_hi.append(100 * (hi - p))
+                err_lo.append(max(0.0, 100 * (p - lo)))  # clamp float rounding at 0% / 100%
+                err_hi.append(max(0.0, 100 * (hi - p)))
             ax.bar(xs, ys, width=width, color=LANG_COLOR[lang], label=LANG_LABEL[lang], zorder=2)
             ax.errorbar(xs, ys, yerr=[err_lo, err_hi], fmt="none", ecolor=TEXT_SECONDARY, elinewidth=1, capsize=2, zorder=3)
         ax.set_xticks(range(len(order)))
