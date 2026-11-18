@@ -8,3 +8,6 @@ human_review/review_page.html
 logs/rescore/
 logs/rescore-opus/
 logs/rescore-low/
+# Main-run logs are written while a phase runs; finished logs are added explicitly
+# (git add -f) after each phase so that no partial log is committed.
+logs/runs/
