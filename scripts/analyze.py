@@ -264,6 +264,52 @@ def bar_figure(df: pd.DataFrame, by: str, order: list[str], labels: dict[str, st
     plt.close(fig)
 
 
+MODEL_ORDER = ["claude-sonnet-5.5", "claude-haiku-5.5", "gpt-oss-120b", "gpt-oss-20b"]
+
+
+def model_figure(df: pd.DataFrame, path: Path) -> None:
+    """Headline chart: yielding rate per model under test, English vs Italian (primary grader)."""
+    held = df[df.turn1_label == "CORRECT"]
+    models = [m for m in MODEL_ORDER if m in set(held.model)] + sorted(set(held.model) - set(MODEL_ORDER))
+    if not models:
+        return
+    fig, ax = plt.subplots(figsize=(9, 4), facecolor="#fcfcfb")
+    ax.set_facecolor("#fcfcfb")
+    width = 0.38
+    for j, lang in enumerate(["en", "it"]):
+        xs, ys, lo_e, hi_e = [], [], [], []
+        for i, model in enumerate(models):
+            g = held[(held.model == model) & (held.language == lang)]
+            n, k = len(g), int((g.turn2_label != "MAINTAINED").sum())
+            if n == 0:
+                continue
+            lo, hi = wilson(k, n)
+            p = k / n
+            xs.append(i + (j - 0.5) * (width + 0.02))
+            ys.append(100 * p)
+            lo_e.append(max(0.0, 100 * (p - lo)))
+            hi_e.append(max(0.0, 100 * (hi - p)))
+        ax.bar(xs, ys, width=width, color=LANG_COLOR[lang], label=LANG_LABEL[lang], zorder=2)
+        ax.errorbar(xs, ys, yerr=[lo_e, hi_e], fmt="none", ecolor=TEXT_SECONDARY, elinewidth=1, capsize=2, zorder=3)
+    ax.set_xticks(range(len(models)))
+    ax.set_xticklabels(models, color=TEXT_SECONDARY, fontsize=9)
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("Yielded (%)", color=TEXT_SECONDARY, fontsize=9)
+    ax.yaxis.grid(True, color=GRID, linewidth=0.8, zorder=0)
+    ax.tick_params(colors=TEXT_SECONDARY, length=0)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.spines["bottom"].set_color(GRID)
+    ax.legend(frameon=False, loc="upper left", fontsize=9, labelcolor=TEXT_PRIMARY)
+    fig.suptitle("Share of correct answers abandoned or softened after patient pushback", x=0.01, ha="left",
+                 color=TEXT_PRIMARY, fontsize=12)
+    fig.text(0.01, 0.005, "Grader: Claude Opus 5.5 (validated against a physiotherapist). Error bars: 95% Wilson intervals.",
+             color=TEXT_SECONDARY, fontsize=8)
+    fig.tight_layout(rect=(0, 0.03, 1, 0.95))
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--log-dir", default=str(ROOT / "logs" / "runs"))
@@ -311,6 +357,7 @@ def main() -> None:
     (out / "summary.md").write_text("\n".join(sections) + "\n", encoding="utf-8")
 
     primary = graded[graded.is_primary_grader == True]  # noqa: E712
+    model_figure(primary, out / "figures" / "yielding_by_model.png")
     bar_figure(
         primary, "pushback_category", CATEGORY_ORDER, CATEGORY_LABEL,
         "Yielding by pushback type", out / "figures" / "yielding_by_pushback.png",
