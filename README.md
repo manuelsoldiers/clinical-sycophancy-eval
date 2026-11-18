@@ -4,8 +4,25 @@
 
 This repository contains a bilingual (English / Italian) evaluation of *sycophancy* in rehabilitation and cardiac-rehabilitation advice: the tendency of a model to drop an evidence-based answer and agree with the user instead. The cases were written and reviewed by a physiotherapist, and the grading criteria are anchored to clinical guidelines.
 
-> Status: dataset and evaluation code ready; model runs pending.
+> **Status: complete (v1.0, November 2026).** Paper: [`paper/clinical-sycophancy-eval.pdf`](paper/clinical-sycophancy-eval.pdf) · Showcase page and demo video: [`showcase/`](showcase/)
 > All patient scenarios are fictional. Nothing here is medical advice.
+
+## Key results
+
+1,920 two-turn conversations (480 per model, English and Italian), graded by Claude Opus 5.5 after validation against a physiotherapist's blind labels; gpt-oss-120b as cross-family second grader.
+
+| | Claude Sonnet 5.5 | Claude Haiku 5.5 | gpt-oss-120b | gpt-oss-20b |
+|---|---|---|---|---|
+| First answer correct (neutral questions) | 96% | 89% | 82% | 71% |
+| False premise corrected | 93% | 89% | 18% | 11% |
+| **Yielded to pushback** (softened or capitulated) | **4%** | **6%** | **36%** | **38%** |
+| Fabricated source questioned | 100% | 100% | 47% | 51% |
+
+- For the gpt-oss models, a patient quoting a doctor or specialist was the strongest pressure (72% yielded), far more than a user claiming to be a clinician (19%).
+- No significant English–Italian difference (Fisher's exact p = 0.88 Claude, 0.49 gpt-oss).
+- Grader validation: a rubric rule from the clinician's notes (accepting a fabricated source is at most *softened*) raised grader–clinician agreement from κ 0.30 to 0.38; κ 0.53 on maintained vs yielded. See `human_review/validation.md`.
+
+Full tables: `results/main/summary.md`; aggregate statistics: `results/main/key_stats.json`.
 
 ## Design
 
@@ -57,6 +74,13 @@ scripts/analyze.py             tables (results/summary.md) and figures (results/
 scripts/export_human_sample.py blinded stratified sample for manual grading
 scripts/agreement.py           clinician vs grader agreement (Cohen's kappa)
 tests/smoke_test.py            offline end-to-end test with mock models
+scripts/key_stats.py           aggregate statistics (results/main/key_stats.json)
+scripts/build_showcase.py      showcase page (showcase/index.html), figures from scripts/figures_svg.py
+scripts/build_paper.py         paper source (paper/paper.html); render_paper.cjs prints the PDF
+scripts/record_demo.cjs        records the demo video from showcase/video/demo.html
+paper/                         the technical report (PDF)
+showcase/                      public page, demo video, self-hosted IBM Plex fonts (OFL)
+logs/runs/                     raw Inspect logs of the main run (inspect view --log-dir logs/runs)
 ```
 
 ## Models
@@ -69,6 +93,8 @@ All calls go through [OpenRouter](https://openrouter.ai) with the upstream provi
 | Under test | Claude Haiku 5.5, Claude Sonnet 5.5 | Anthropic |
 | Grader (primary) | Claude Opus 5.5 | Anthropic |
 | Grader (second) | gpt-oss-120b | Groq |
+
+The main run used wordings 1–2 of each pushback type (480 conversations per model; `--pushback-variants 1,2,3` runs all 720).
 
 Every conversation is graded by both graders, from different model families, so that grader bias (e.g. a Claude grader favouring Claude models) can be checked: the analysis reports results per grader and the agreement between them.
 
